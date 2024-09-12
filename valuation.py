@@ -42,7 +42,7 @@ wacc = {
 
 acao_selecionada = st.radio("", acoes, index=0)
 
-fcd, pl, ev = st.tabs(["Fluxo de Caixa Descontado", "P/L e Dividend Yield", "EV/EBITDA, ROE e ROA"])
+fcd, pl = st.tabs(["Fluxo de Caixa Descontado", "Método de Múltiplo Mercado"])
 
 fcf = get_free_cash_flow(acao_selecionada)
 
@@ -112,7 +112,7 @@ if fcf is not None:
         estimativas_futuras = estimar_fluxo_de_caixa(df_fcf['Free Cash Flow'].values, crescimento, periodos)
 
         ultima_data = df_fcf['Data'].max()
-        datas_futuras = pd.date_range(ultima_data, periods=periodos + 1, freq='Y')[1:].date  # Gerar datas anuais
+        datas_futuras = pd.date_range(ultima_data, periods=periodos + 1, freq='Y')[1:].date 
 
         df_estimado = pd.DataFrame({
             'Data': datas_futuras,
@@ -167,31 +167,27 @@ if fcf is not None:
         st.plotly_chart(fig, use_container_width=True)
 #-------------------------------------------------------------------------------------------------------------------------
         with pl:
-            st.write(f"Dados de P/L e Dividend Yield ao longo do tempo para {acao_selecionada}:")
-            st.dataframe(df_multiplos)
+            def calcular_valuation_mm(multiplo_mercado, ebitda, divida, caixa):
+                enterprise_value = multiplo_mercado * ebitda
+                market_cap = enterprise_value - divida + caixa
+                return enterprise_value, market_cap
+            def obter_dados_empresa(ticker):
+                empresa = yf.Ticker(ticker)
+                ebitda = empresa.financials.loc['EBITDA'].iloc[0]
+                divida = empresa.balance_sheet.loc['Long Term Debt'].iloc[0]/10**6
+                caixa = empresa.balance_sheet.loc['Cash'].iloc[0]/10**6
+                return ebitda, divida, caixa
+            multiplo_mercado = st.number_input("multiplo médio de mercado(ex)", min_value=0.0, step=0.1)
 
-            fig = px.line(df_multiplos, x='Data', y=['P/L', 'Dividend Yield (%)'], 
-                        title=f'Múltiplos Financeiros ao Longo do Tempo - {acao_selecionada}',
-                        labels={'value': 'Valor', 'Data': 'Data'}, 
-                        color_discrete_map={'P/L': 'blue', 'Dividend Yield (%)': 'orange'})
+            ebitda, divida, caixa = obter_dados_empresa(acao_selecionada)
+            enterprise_value, market_cap = calcular_valuation_mm(multiplo_mercado, ebitda, divida, caixa)
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.write(f'EBITDA da empresa:R$ {ebitda:.2f} milhões')
+            st.write(f'Divida da empresa:R$ {divida:.2f} milhões')
+            st.write(f'Caixa da empresa:R$ {caixa:.2f} milhões')
+            st.write(f'Enterprise Values (EV):R$ {enterprise_value:.2f} milhões')
+            st.write(f'Market Cap (Valor de Mercado):R$ {divida:.2f} milhões')
+        
 
-            indicadores = get_financials(acao_selecionada)
+
 #----------------------------------------------------------------------------------------------------------------------------------------------
-    with ev:
-        st.write(f"Indicadores mais recentes para {acao_selecionada}:")
-        for indicador, valor in indicadores.items():
-            if valor is not None:
-                st.write(f"{indicador}: {valor:.2f}")
-            else:
-                st.write(f"{indicador}: Dados não disponíveis")
-
-        indicadores_vis = pd.DataFrame(list(indicadores.items()), columns=['Indicador', 'Valor']).dropna()
-
-        fig_indicadores = px.bar(indicadores_vis, x='Indicador', y='Valor', 
-                                title=f'Indicadores Financeiros para {acao_selecionada}',
-                                labels={'Valor': 'Valor', 'Indicador': 'Indicador'},
-                                color='Indicador')
-
-        st.plotly_chart(fig_indicadores, use_container_width=True)
