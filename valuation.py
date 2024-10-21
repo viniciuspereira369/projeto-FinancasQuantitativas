@@ -175,7 +175,8 @@ if fcf is not None:
                 empresa = yf.Ticker(ticker)
                 ebitda = empresa.financials.loc['EBITDA'].iloc[0]
                 divida = empresa.balance_sheet.loc['Long Term Debt'].iloc[0]/10**6
-                caixa = empresa.balance_sheet.loc['Cash'].iloc[0]/10**6
+                print(empresa.balance_sheet.index)
+                caixa = empresa.balance_sheet.loc['Cash Financial'].iloc[0]/10**6
                 return ebitda, divida, caixa
             multiplo_mercado = st.number_input("multiplo médio de mercado(ex)", min_value=0.0, step=0.1)
 
